@@ -1,0 +1,10 @@
+export type Team = { id: string; name: string; abbreviation: string; conference?: string | null };
+export type Player = { id: string; name: string; position: string | null; team_id: string | null; team?: Team | null };
+export type Game = { id: string; provider_date: string; starts_at: string | null; season: number; status: 'scheduled' | 'live' | 'final' | 'postponed' | 'canceled' | 'unknown'; home_team_id: string; away_team_id: string; home_score: number | null; away_score: number | null; home_team: Team; away_team: Team; source: string; fetched_at: string; postseason: boolean };
+export type StatKey = 'pts'|'reb'|'ast'|'fg3m'|'stl'|'blk'|'turnover'|'fga'|'fgm'|'fta';
+export type BoxScore = { game_id: string; player_id: string; team_id: string; minutes: number | null; played: boolean; stats: Partial<Record<StatKey,number | null>>; game: Game; player?: Player; fetched_at: string };
+export type Injury = { player_id: string; status: string; detail: string | null; return_date: string | null; source: string; fetched_at: string; player: Player };
+export type Health = { id: string; state: string; last_attempt: string | null; last_success: string | null; message: string | null; stats_success: string | null; injuries_success: string | null; backfill_cursor: string | null; source: string; schedule: string };
+export type Market = 'pts'|'reb'|'ast'|'fg3m'|'stl'|'blk'|'turnover'|'pr'|'pa'|'ra'|'pra';
+export type Selection = { id: string; created_at: string; player_id: string; player_name: string; game_id: string; game_label: string; market: Market; side: 'over'|'under'; line: number; odds: number | null; probability: number | null; projection: number | null; model_version: string; sample_size: number; notes: string; actual: number | null; outcome: 'pending'|'win'|'loss'|'push'|'void'; source_updated_at: string | null };
+export type Dataset = { games: Game[]; players: Player[]; injuries: Injury[]; health: Health | null; configured: boolean; error: string | null; date: string };
