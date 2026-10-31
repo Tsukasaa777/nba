@@ -1,4 +1,4 @@
-# PropsPro IQ
+# The Tsukasa Picks
 
 Beyond the Box Score. NBA research dashboard built with Next.js and Supabase, with Philippine-time schedules, configurable prop thresholds, historical hit rates, player context, and saved research selections.
 
