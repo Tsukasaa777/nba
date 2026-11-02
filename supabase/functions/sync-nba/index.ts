@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
-import { SportApiProvider, SportApiError, easternDate, offsetDate,
+import { SportApiProvider, SportApiError, easternDate, offsetDate, nbaScheduleFetchDates,
   normalizeSportGames, normalizeSportRoster, normalizeSportBoxScore, normalizeSportTeam } from "./sportapi.ts";
 const respond = (status: number, value: unknown) => new Response(JSON.stringify(value),
   { status, headers: { "content-type": "application/json", "cache-control": "no-store" }});
@@ -38,8 +38,10 @@ Deno.serve(async request => {
     const todayET = easternDate(now);
     const { data: health, error: healthError } = await db.from("data_health").select("*").eq("id", "nba").single();
     if (healthError) throw new Error("Could not read sync checkpoint");
-    // Two US basketball dates per 15-minute run, instead of all dates, to protect the 14k/month free cap.
-    const recent = [offsetDate(todayET, -1), todayET];
+    // Always refresh current/recent games, plus future schedules hourly (and
+    // two days ahead every six hours). Missing future fixtures caused an
+    // incomplete Philippine-Time matchup selector even though SportAPI had them.
+    const recent = nbaScheduleFetchDates(now);
     const allGames = new Map<number, Record<string, any>>();
     for (const date of recent) {
       const payload = await api.get("games/date/" + date, { tz: "America/New_York", league: "nba" });
