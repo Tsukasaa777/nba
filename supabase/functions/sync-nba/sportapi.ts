@@ -124,6 +124,19 @@ export function normalizeSportBoxScore(gameRaw: RecordJson, response: RecordJson
 }
 export class SportApiProvider {
   calls = 0;
+  dailyRemaining: number | null = null;
+  monthlyRemaining: number | null = null;
+  /** Month/day quota checks from provider response headers (do not expose secrets). */
+  mayBackfill(now: Date): boolean {
+    const utcDay = now.getUTCDate();
+    const last = new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+1,0)).getUTCDate();
+    const daysRemaining = last-utcDay+1;
+    // Always reserve 250 daily calls for normal slate, corrections, roster and retries.
+    if(this.dailyRemaining !== null && this.dailyRemaining < 250) return false;
+    // Reserve at least 250 calls per remaining calendar day before spending on history.
+    if(this.monthlyRemaining !== null && this.monthlyRemaining < 250*daysRemaining) return false;
+    return true;
+  }
   constructor(private key: string, private limit = 40, private fetcher: typeof fetch = fetch) {}
   async get(path: string, params: Record<string, string> = {}): Promise<RecordJson> {
     if (this.calls >= this.limit) throw new SportApiError(429, "Safe request budget reached for this run");
@@ -140,6 +153,10 @@ export class SportApiProvider {
         await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
         continue;
       }
+      const d = Number(response.headers.get("X-RateLimit-Remaining"));
+      const m = Number(response.headers.get("X-RateLimit-Month-Remaining"));
+      if(response.headers.has("X-RateLimit-Remaining") && Number.isFinite(d)) this.dailyRemaining=d;
+      if(response.headers.has("X-RateLimit-Month-Remaining") && Number.isFinite(m)) this.monthlyRemaining=m;
       if (response.status === 401 || response.status === 403)
         throw new SportApiError(response.status, "SportAPI authorization failed or endpoint unavailable");
       if (response.status === 429)
