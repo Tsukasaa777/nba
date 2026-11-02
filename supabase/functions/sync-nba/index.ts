@@ -26,7 +26,9 @@ Deno.serve(async request => {
     if (error) throw new Error("Database rejected NBA data batch");
   };
   try {
-    const key = Deno.env.get("SPORTAPI_API_KEY");
+    // Resolve encrypted key through service-role-only RPC; never expose it to browsers.
+    const { data: vaultKey, error: vaultError } = await db.rpc("get_sportapi_provider_key");
+    const key = Deno.env.get("SPORTAPI_API_KEY") || (!vaultError && typeof vaultKey === "string" ? vaultKey : null);
     if (!key) {
       await finish("awaiting_provider", "SportAPI sync ready, but SPORTAPI_API_KEY has not been configured");
       return respond(200, { state: "awaiting_provider", ...counts });
