@@ -99,26 +99,42 @@ Deno.serve(async request => {
       // Mark full-roster success only after every team was refreshed recently.
       rosterOk = staleTeams.length <= selected.length;
     }
-    // Slow historical backfill, four dates/day maximum, respecting the 14k/month free quota.
-    if (now.getUTCHours() % 6 === 0 && now.getUTCMinutes() < 15) {
-      const previous = health.backfill_cursor || offsetDate(todayET, -4);
-      const seasonYear = now.getUTCMonth() >= 9 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
-      const firstDay = seasonYear + "-10-01";
-      if (previous >= firstDay) {
-        const archive = await api.get("games/date/" + previous, { tz: "America/New_York", league: "nba" });
-        if (!Array.isArray(archive.data)) throw new Error("SportAPI archive is missing games array");
-        const older = archive.data.filter((g: any) => g?.league?.slug === "nba");
-        await ingest(normalizeSportGames(older));
-        for (const raw of older.filter((g: any) => ["FT","AOT"].includes(String(g.status).toUpperCase()) && g.has_boxscore !== false)) {
-          const response = await api.get("games/" + raw.id + "/players");
-          const normalized = normalizeSportBoxScore(raw, response);
-          if (normalized.boxes.length) {
-            await ingest({ players: normalized.players, boxes: normalized.boxes });
-            counts.boxes += normalized.boxes.length;
-          }
+    // Import historic games by date for ALL teams, not just the selected opponent.
+    // Two historical basketball dates per run help keep the 15-minute worker within
+    // free-tier request budgets and the six-minute scheduler lock. Source records
+    // are upserted idempotently and the cursor advances only after successful writes.
+    // Historical data is available across regular season and playoffs; do not
+    // count preseason games as NBA prop research unless explicitly supported later.
+    const seasonYear = now.getUTCMonth() >= 9 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+    const currentSeasonStart = seasonYear + "-10-01";
+    const historyFloor = (seasonYear - 1) + "-03-01";
+    let cursor = health.backfill_cursor || offsetDate(todayET, -2);
+    if (cursor < currentSeasonStart && cursor > (seasonYear - 1) + "-07-01") {
+      // Skip the empty summer/offseason gap. Prior-season regular games and playoffs
+      // matter for L10/L20 in the first weeks of a new NBA season.
+      cursor = seasonYear + "-06-30";
+    }
+    for (let dayIndex = 0; dayIndex < 2 && cursor >= historyFloor; dayIndex++) {
+      const archiveDay = cursor;
+      const archive = await api.get("games/date/" + archiveDay, { tz: "America/New_York", league: "nba" });
+      if (!Array.isArray(archive.data)) throw new Error("SportAPI history response has no games array");
+      const historical = archive.data.filter((g: any) =>
+        g?.league?.slug === "nba" && !/preseason|summer/i.test(String(g.stage ?? "")));
+      await ingest(normalizeSportGames(historical));
+      for (const raw of historical.filter((g: any) =>
+        ["FT", "AOT"].includes(String(g.status).toUpperCase()) && g.has_boxscore !== false)) {
+        const response = await api.get("games/" + raw.id + "/players");
+        const normalized = normalizeSportBoxScore(raw, response);
+        if (normalized.boxes.length) {
+          await ingest({ players: normalized.players, boxes: normalized.boxes });
+          counts.boxes += normalized.boxes.length;
         }
-        nextCursor = offsetDate(previous, -1);
       }
+      cursor = offsetDate(archiveDay, -1);
+      if (cursor < currentSeasonStart && cursor > (seasonYear - 1) + "-07-01") {
+        cursor = seasonYear + "-06-30";
+      }
+      nextCursor = cursor;
     }
     await finish("current", "SportAPI NBA schedules and final box scores synchronized; injuries and defender tracking unavailable from this source.");
     return respond(200, { state: "current", ...counts, provider: "SportAPI" });
