@@ -1,52 +1,130 @@
-import { createClient } from 'npm:@supabase/supabase-js@2.118.0';
-import { BallDontLieProvider, ProviderError, normalizeGames, normalizeStats, player, team, type Json } from './provider.ts';
-const reply=(status:number,value:unknown)=>new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json','cache-control':'no-store'}});
-Deno.serve(async req=>{
- if(req.method!=='POST')return reply(405,{error:'POST required'});
- const token=(req.headers.get('authorization')??'').replace(/^Bearer /,'');
- if(!/^[a-f0-9]{64}$/.test(token))return reply(401,{error:'Unauthorized'});
- const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false}});
- const owner=crypto.randomUUID();const {data:claimed,error:claimError}=await db.rpc('claim_nba_sync',{p_token:token,p_owner:owner});
- if(claimError||!claimed)return reply(409,{error:'Unauthorized or another synchronization is running'});
- let statOk=false,injuryOk=false,rosterOk=false,cursor:string|null=null;const counts:Json={games:0,boxes:0};
- const finish=async(state:string,message:string)=>{
-  const {error}=await db.rpc('finish_nba_sync',{p_owner:owner,p_state:state,p_message:message,p_counts:counts,p_stats:statOk,p_injuries:injuryOk,p_roster:rosterOk,p_cursor:cursor});
-  if(error)throw new Error('Could not record synchronization completion.');
- };
- const ingest=async(payload:Json)=>{const {error}=await db.rpc('ingest_nba_batch',{p_owner:owner,p_payload:payload});if(error)throw new Error('Database rejected an ingestion batch.');};
- try{
-  const key=Deno.env.get('BALLDONTLIE_API_KEY');
-  if(!key){await finish('awaiting_provider','Scheduled worker is running. Add an authorized NBA provider key to enable data updates.');return reply(200,{state:'awaiting_provider',ingested:0});}
-  const paid=['all-star','goat'].includes(Deno.env.get('BDL_PLAN')??'free');
-  const provider=new BallDontLieProvider(key,paid?1100:12500,paid?40:8);
-  const now=new Date(),day=(d:Date)=>d.toISOString().slice(0,10),shift=(n:number)=>day(new Date(now.getTime()+n*86400000));
-  const {data:health,error:healthError}=await db.from('data_health').select('*').eq('id','nba').single();if(healthError)throw new Error('Cannot read synchronization checkpoint.');
-  const current=await provider.get('games',{start_date:shift(-3),end_date:shift(7)});
-  await ingest(normalizeGames(current));counts.games=current.length;
-  if(!paid){await finish('partial','Schedule updated. Player statistics and injuries require the provider’s ALL-STAR plan or higher.');return reply(200,{state:'partial',...counts});}
-  const finals=current.filter(g=>/^final\b/i.test(g.status)||g.status_state==='final');
-  if(finals.length){const stats=await provider.get('stats',{'game_ids[]':finals.map(g=>String(g.id))});const payload=normalizeStats(stats,new Map(finals.map(g=>[g.id,g])));await ingest(payload);counts.boxes+=payload.boxes.length;}
-  statOk=true;
-  if(!health.roster_success||Date.now()-Date.parse(health.roster_success)>86400000){
-   const roster=await provider.get('players/active');
-   await ingest({teams:[...new Map(roster.filter(p=>p.team).map(p=>[p.team.id,team(p.team)])).values()],players:roster.map(p=>player(p,true))});rosterOk=true;
+import { createClient } from "npm:@supabase/supabase-js@2.118.0";
+import { SportApiProvider, SportApiError, easternDate, offsetDate,
+  normalizeSportGames, normalizeSportRoster, normalizeSportBoxScore, normalizeSportTeam } from "./sportapi.ts";
+const respond = (status: number, value: unknown) => new Response(JSON.stringify(value),
+  { status, headers: { "content-type": "application/json", "cache-control": "no-store" }});
+Deno.serve(async request => {
+  if (request.method !== "POST") return respond(405, { error: "POST required" });
+  const token = (request.headers.get("authorization") ?? "").replace(/^Bearer /, "");
+  if (!/^[a-f0-9]{64}$/.test(token)) return respond(401, { error: "Unauthorized" });
+  const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } });
+  const owner = crypto.randomUUID();
+  const { data: claimed, error: claimError } = await db.rpc("claim_nba_sync", { p_token: token, p_owner: owner });
+  if (claimError || !claimed) return respond(409, { error: "Unauthorized or sync already running" });
+  let statsOk = false, rosterOk = false;
+  let nextCursor: string | null = null;
+  const counts = { games: 0, boxes: 0 };
+  const finish = async (state: string, message: string) => {
+    const { error } = await db.rpc("finish_nba_sync", { p_owner: owner, p_state: state,
+      p_message: message, p_counts: counts, p_stats: statsOk, p_injuries: false,
+      p_roster: rosterOk, p_cursor: nextCursor });
+    if (error) throw new Error("Could not save sync completion");
+  };
+  const ingest = async (payload: Record<string, unknown>) => {
+    const { error } = await db.rpc("ingest_nba_batch", { p_owner: owner, p_payload: payload });
+    if (error) throw new Error("Database rejected NBA data batch");
+  };
+  try {
+    // Resolve encrypted key through service-role-only RPC; never expose it to browsers.
+    const { data: vaultKey, error: vaultError } = await db.rpc("get_sportapi_provider_key");
+    const key = Deno.env.get("SPORTAPI_API_KEY") || (!vaultError && typeof vaultKey === "string" ? vaultKey : null);
+    if (!key) {
+      await finish("awaiting_provider", "SportAPI sync ready, but SPORTAPI_API_KEY has not been configured");
+      return respond(200, { state: "awaiting_provider", ...counts });
+    }
+    const api = new SportApiProvider(key, 45);
+    const now = new Date();
+    const todayET = easternDate(now);
+    const { data: health, error: healthError } = await db.from("data_health").select("*").eq("id", "nba").single();
+    if (healthError) throw new Error("Could not read sync checkpoint");
+    // Two US basketball dates per 15-minute run, instead of all dates, to protect the 14k/month free cap.
+    const recent = [offsetDate(todayET, -1), todayET];
+    const allGames = new Map<number, Record<string, any>>();
+    for (const date of recent) {
+      const payload = await api.get("games/date/" + date, { tz: "America/New_York", league: "nba" });
+      if (!Array.isArray(payload.data)) throw new Error("SportAPI schedule response has no games array");
+      for (const g of payload.data) if (g?.league?.slug === "nba") allGames.set(g.id, g);
+    }
+    const schedule = normalizeSportGames([...allGames.values()]);
+    await ingest(schedule);
+    counts.games = schedule.games.length;
+    // Fetch a final box score on first discovery, then periodically refresh within 24 hours for corrections.
+    const finals = [...allGames.values()].filter(g => ["FT","AOT"].includes(String(g.status).toUpperCase()) && g.has_boxscore !== false);
+    const ids = finals.map(g => "sportapi:" + g.id);
+    const { data: stored, error: storedError } = ids.length
+      ? await db.from("box_scores").select("game_id,fetched_at").in("game_id", ids).limit(1000)
+      : { data: [], error: null };
+    if (storedError) throw new Error("Could not check existing box scores");
+    const stamps = new Map<string, number>();
+    for (const box of (stored ?? [])) stamps.set(box.game_id, Math.max(stamps.get(box.game_id) ?? 0, Date.parse(box.fetched_at)));
+    for (const raw of finals) {
+      const last = stamps.get("sportapi:" + raw.id) ?? 0;
+      const age = now.getTime() - Date.parse(raw.start);
+      // Never request already-stored historical games every 15 minutes.
+      if (last && (age > 86_400_000 || now.getTime() - last < 6 * 3_600_000)) continue;
+      const response = await api.get("games/" + raw.id + "/players");
+      const normalized = normalizeSportBoxScore(raw, response);
+      if (!normalized.boxes.length) continue;
+      await ingest({ players: normalized.players, boxes: normalized.boxes });
+      counts.boxes += normalized.boxes.length;
+    }
+    statsOk = true;
+    // Refresh rosters only once per day; otherwise game-player lists have no active searchable players.
+    if (!health.roster_success || Date.now() - Date.parse(health.roster_success) > 86_400_000) {
+      // NBA league profile provides data.teams; roster updates are batched across
+      // successive scheduler runs rather than risking the free provider's quota.
+      const league = await api.get("leagues/nba");
+      const teamsRaw = league.data?.teams;
+      if (!Array.isArray(teamsRaw) || teamsRaw.length < 20)
+        throw new Error("SportAPI NBA league team directory unavailable");
+      await ingest({ teams: teamsRaw.map(normalizeSportTeam) });
+      const { data: currentRosters, error: rosterQueryError } = await db.from("players")
+        .select("team_id,fetched_at").eq("active",true).limit(800);
+      if (rosterQueryError) throw new Error("Cannot check NBA roster freshness");
+      const threshold = now.getTime() - 86_400_000;
+      const freshTeamIds = new Set((currentRosters ?? [])
+        .filter((p: any) => Number.isFinite(Date.parse(p.fetched_at))
+          && Date.parse(p.fetched_at) >= threshold)
+        .map((p: any) => p.team_id));
+      const staleTeams = teamsRaw.filter((t: any) => !freshTeamIds.has("sportapi:" + t.id));
+      const selected = staleTeams.slice(0, 10);
+      const players = [];
+      for (const t of selected) {
+        const roster = await api.get("teams/" + t.id + "/roster");
+        if (!Array.isArray(roster.data)) throw new Error("NBA roster response has no player list");
+        players.push(...normalizeSportRoster(t.id, roster.data));
+      }
+      if (players.length) await ingest({ players });
+      // Mark full-roster success only after every team was refreshed recently.
+      rosterOk = staleTeams.length <= selected.length;
+    }
+    // Slow historical backfill, four dates/day maximum, respecting the 14k/month free quota.
+    if (now.getUTCHours() % 6 === 0 && now.getUTCMinutes() < 15) {
+      const previous = health.backfill_cursor || offsetDate(todayET, -4);
+      const seasonYear = now.getUTCMonth() >= 9 ? now.getUTCFullYear() : now.getUTCFullYear() - 1;
+      const firstDay = seasonYear + "-10-01";
+      if (previous >= firstDay) {
+        const archive = await api.get("games/date/" + previous, { tz: "America/New_York", league: "nba" });
+        if (!Array.isArray(archive.data)) throw new Error("SportAPI archive is missing games array");
+        const older = archive.data.filter((g: any) => g?.league?.slug === "nba");
+        await ingest(normalizeSportGames(older));
+        for (const raw of older.filter((g: any) => ["FT","AOT"].includes(String(g.status).toUpperCase()) && g.has_boxscore !== false)) {
+          const response = await api.get("games/" + raw.id + "/players");
+          const normalized = normalizeSportBoxScore(raw, response);
+          if (normalized.boxes.length) {
+            await ingest({ players: normalized.players, boxes: normalized.boxes });
+            counts.boxes += normalized.boxes.length;
+          }
+        }
+        nextCursor = offsetDate(previous, -1);
+      }
+    }
+    await finish("current", "SportAPI NBA schedules and final box scores synchronized; injuries and defender tracking unavailable from this source.");
+    return respond(200, { state: "current", ...counts, provider: "SportAPI" });
+  } catch (error) {
+    const message = error instanceof SportApiError ? error.message : "NBA synchronization failed; verified records retained";
+    try { await finish("error", message); } catch { console.error("Could not record NBA sync status", owner); }
+    return respond(503, { state: "error", message });
   }
-  const injuries=await provider.get('player_injuries');
-  await ingest({teams:[...new Map(injuries.filter(i=>i.player?.team).map(i=>[i.player.team.id,team(i.player.team)])).values()],players:injuries.map(i=>player(i.player)),injuries:injuries.map(i=>({player_id:'bdl:'+i.player.id,status:i.status||'Unknown',detail:i.description??null,return_date:i.return_date??null}))});injuryOk=true;
-  // Backfill one complete calendar day per run; retry that day on any failure.
-  const end=new Date((health.backfill_cursor??shift(-4))+'T12:00:00Z');
-  const seasonStart=new Date(Date.UTC(now.getUTCFullYear()-(now.getUTCMonth()<9?2:1),9,1));
-  if(end>=seasonStart){
-   const old=await provider.get('games',{'dates[]':[day(end)]});await ingest(normalizeGames(old));
-   const finalOld=old.filter(g=>/^final\b/i.test(g.status)||g.status_state==='final');
-   if(finalOld.length){const stats=await provider.get('stats',{'game_ids[]':finalOld.map(g=>String(g.id))});const payload=normalizeStats(stats,new Map(finalOld.map(g=>[g.id,g])));await ingest(payload);counts.boxes+=payload.boxes.length;}
-   cursor=day(new Date(end.getTime()-86400000));
-  }
-  await finish('current','Schedule, final-game statistics, and injury records updated. Historical backfill continues automatically.');
-  return reply(200,{state:'current',...counts});
- }catch(error){
-  const message=error instanceof ProviderError?error.message:'Synchronization failed. Last verified records are preserved.';
-  try{await finish('error',message);}catch{console.error('Sync completion could not be persisted',owner);}
-  return reply(503,{state:'error',message});
- }
 });
