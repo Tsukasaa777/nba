@@ -116,7 +116,10 @@ Deno.serve(async request => {
       // matter for L10/L20 in the first weeks of a new NBA season.
       cursor = seasonYear + "-06-30";
     }
-    for (let dayIndex = 0; dayIndex < 2 && cursor >= historyFloor; dayIndex++) {
+    // Historical runs operate every two hours, not on every 15-minute score sync.
+    // Avoid burning the free 14,000-call monthly allowance during season backfill.
+    const backfillWindow = now.getUTCHours() % 2 === 0 && now.getUTCMinutes() < 15;
+    for (let dayIndex = 0; backfillWindow && dayIndex < 2 && cursor >= historyFloor && api.mayBackfill(now); dayIndex++) {
       const archiveDay = cursor;
       const archive = await api.get("games/date/" + archiveDay, { tz: "America/New_York", league: "nba" });
       if (!Array.isArray(archive.data)) throw new Error("SportAPI history response has no games array");
