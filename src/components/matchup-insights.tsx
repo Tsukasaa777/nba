@@ -46,6 +46,11 @@ export default function MatchupInsights({game,player,market}:{game:Game|undefine
         'A plausible matchup, but its effect on this stat is not established by box scores.'}</p>
     </div>;
    })}</div><p className="fineprint">These names are **estimated candidates**, not a scouting or player-vs-player defensive tracking report. Without assignment/contest data, no claimed defender suppression percentage is shown.</p></>}
+  {insights?.positionAllowed&&<div className="candidate-card" style={{marginTop:16}}>
+   <div className="candidate-head"><strong>Observed against similar-role players</strong><span className="tag">{insights.positionAllowed.role}</span></div>
+   <p className="fineprint">Against {opponent?.abbreviation}, opposing {insights.positionAllowed.role} players averaged <b>{insights.positionAllowed.pts.toFixed(1)} PTS · {insights.positionAllowed.reb.toFixed(1)} REB · {insights.positionAllowed.ast.toFixed(1)} AST</b> across {insights.positionAllowed.playerGames} player-game observations from {insights.positionAllowed.games} verified NBA games.</p>
+   <p className="fineprint">These are raw player-game averages, not position-adjusted defensive ratings. Opponent talent, minutes and matchups are uncontrolled.</p>
+  </div>}
   <h3 style={{marginTop:22}}>Key teammate opportunities</h3>
   {!game||!player?<p className="fineprint">Select a player to examine their own team's scoring and availability context.</p>:
   !insights?<p className="fineprint">Analyzing scoring/assist roles…</p>:
