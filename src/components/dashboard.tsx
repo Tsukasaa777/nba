@@ -34,7 +34,7 @@ export default function Dashboard({initial,route}:{initial:Dataset;route:string}
  useEffect(()=>{setH2h(false);},[gameId,playerId]);
  useEffect(()=>{
   if(!playerId){setLogs([]);return;}const ctrl=new AbortController();setLogs([]);setLogsLoading(true);setLogError('');
-  fetch('/api/players/'+encodeURIComponent(playerId),{signal:ctrl.signal}).then(async r=>{const x=await r.json();if(!r.ok)throw new Error(x.error);setLogs(x.logs);}).catch(e=>{if(!ctrl.signal.aborted)setLogError(e.message);}).finally(()=>{if(!ctrl.signal.aborted)setLogsLoading(false);});return()=>ctrl.abort();
+  fetch('/api/players/'+encodeURIComponent(playerId)+'?revision='+encodeURIComponent(data.health?.stats_success??'initial'),{signal:ctrl.signal}).then(async r=>{const x=await r.json();if(!r.ok)throw new Error(x.error);setLogs(x.logs);}).catch(e=>{if(!ctrl.signal.aborted)setLogError(e.message);}).finally(()=>{if(!ctrl.signal.aborted)setLogsLoading(false);});return()=>ctrl.abort();
  },[playerId,data.health?.stats_success]);
  const game=data.games.find(g=>g.id===gameId),player=data.players.find(p=>p.id===playerId);
  const opponent=game&&player?.team_id?(player.team_id===game.home_team_id?game.away_team_id:player.team_id===game.away_team_id?game.home_team_id:undefined):undefined;
