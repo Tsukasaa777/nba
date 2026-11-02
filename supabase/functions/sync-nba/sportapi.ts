@@ -7,7 +7,7 @@ const validId = (value: unknown) => {
   if (!Number.isSafeInteger(value) || Number(value) <= 0) throw new Error("Invalid SportAPI identifier");
   return PREFIX + value;
 };
-const amount = (n: unknown): number | null => typeof n === "number" && Number.isFinite(n) && n >= 0 ? n : null;
+const amount = (n: unknown): number | null => { const v = typeof n === "string" && /^\d+(?:\.\d+)?$/.test(n) ? Number(n) : n; return typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null; };
 const coalesceNumber = (...values: unknown[]) => values.map(amount).find(v => v !== null) ?? null;
 const year = (s: unknown) => {
   const match = /^([12]\d{3})/.exec(String(s ?? ""));
@@ -103,7 +103,7 @@ export function normalizeSportBoxScore(gameRaw: RecordJson, response: RecordJson
         fgm: coalesceNumber(s.fgm, s.field_goals_made),
         fta: coalesceNumber(s.fta, s.free_throws_attempted)
       };
-      players.set(playerId, { id: playerId, name: String(p.name), position: p.position ?? null });
+      players.set(playerId, { id: playerId, name: String(p.name), position: p.position ?? null, team_id: teamId, active: true });
       boxes.push({ game_id: normGame.id, player_id: playerId, team_id: teamId,
         played_at: normGame.starts_at, minutes, played: !didNotPlay && minutes !== null && minutes > 0, stats });
     }
