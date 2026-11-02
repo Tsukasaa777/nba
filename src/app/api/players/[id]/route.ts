@@ -1,3 +1,0 @@
-import { NextResponse } from 'next/server';
-import { loadPlayerLogs } from '@/lib/data';
-export async function GET(_req:Request,ctx:{params:Promise<{id:string}>}){const {id}=await ctx.params;if(!/^bdl:\d+$/.test(id))return NextResponse.json({error:'Invalid player identifier'},{status:400});try{return NextResponse.json({logs:await loadPlayerLogs(id),coverage:'Up to 500 ingested final-game records; missing games are excluded.'},{headers:{'Cache-Control':'public, s-maxage=60, stale-while-revalidate=120'}});}catch{return NextResponse.json({error:'Historical data is temporarily unavailable.'},{status:503});}}

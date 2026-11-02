@@ -1,6 +1,0 @@
-import { notFound } from 'next/navigation';
-import { loadDataset } from '@/lib/data';
-import { manilaDate } from '@/lib/analytics';
-import Dashboard from '@/components/dashboard';
-export const dynamic='force-dynamic';
-export default async function Page({params}:{params:Promise<{section?:string[]}>}){const {section}=await params;const route=section?.join('/')||'overview';if(!['overview','games','lab','matchups','injuries','builder','picks','methodology','health','privacy','account'].includes(route))notFound();return <Dashboard route={route} initial={await loadDataset(manilaDate())}/>;}

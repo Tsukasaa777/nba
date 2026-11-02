@@ -1,29 +1,32 @@
 # The Tsukasa Picks
 
-Beyond the Box Score. NBA research dashboard built with Next.js and Supabase, with Philippine-time schedules, configurable prop thresholds, historical hit rates, player context, and saved research selections.
+Beyond the Box Score. NBA research website built with Next.js and Supabase. Supports Philippine-time schedules, configurable prop lines, historical hit rates, and saved research picks.
 
-## Current status
+## Production and NBA data
+Production: https://the-tsukasa-picks.vercel.app/
 
-The application builds locally and its 26 analytics/provider tests pass. Supabase migrations and the sync Edge Function are deployed; a 15-minute scheduled worker is running. Real NBA ingestion is awaiting a permitted provider API key. The production site is deployed at https://propspro-iq.vercel.app/ (Vercel READY, app commit f62cc83c41dc883e0b697c3a8f2480741809dcc2). Public overview, lab, health, picks, slate API, and sitemap returned HTTP 200 on November 1, 2026 PHT. The live Supabase read connection is verified; the initial runtime error scan returned no matching logs. Empty and unavailable states are intentional: the app does not seed fabricated sports data.
+The production deployment uses the existing BALLDONTLIE adapter until this SportAPI integration is reviewed and deployed. The SportAPI implementation is prepared on a feature branch; **do not claim it is active without a successful real-data sync**.
 
-Experimental rolling baselines are unvalidated. Historical hit rates are not predictive probabilities. Calibrated probabilities, expected-value recommendations, and direct defender tracking are not represented as available.
+Current free-data source target: https://sportapi.ai/basketball-api. SportAPI documents NBA game schedules, player box scores, rosters, and game histories. Free usage is subject to 2,000 requests/day and 14,000/month (check current provider terms). It **does not provide** player tracking or live betting odds.
+
+### Activate safely
+1. Create an API key in the SportAPI dashboard at https://sportapi.ai/.
+2. Verify legitimate public-web usage rights and account quota.
+3. In the Supabase dashboard for this existing project, add Edge Function secret named **SPORTAPI_API_KEY** (not to GitHub or chat).
+4. Apply the new SportAPI migration using the normal reviewed database migration workflow.
+5. Deploy the new \`sync-nba\` Edge Function including both \`index.ts\` and \`sportapi.ts\` while retaining its existing scheduler-token authentication.
+6. Verify \`public.data_health\` turns \`current\`, \`last_success\` becomes non-null, and genuine rows appear in \`teams\`, \`players\`, \`games\`, and \`box_scores\`.
+7. Verify charts, home/away and H2H using actual final game records; check sample sizes and DNP handling.
+8. Merge/deploy the frontend branch only after checks pass. Automatic GitHub-to-Vercel deployments may require installation of Vercel's GitHub integration.
+
+The existing 15-minute Supabase cron continues independently of visitors. This adapter fetches at most two Eastern-date scoreboards per sync, refreshes box scores on discovery and only every six hours after that, refreshes team rosters at most daily, and backfills at most four NBA dates a day. It explicitly avoids repeatedly requesting every old final game. These strategies target low usage, but **do not provide a hard monthly quota enforcement**; monitor API usage and adjust schedules as needed.
+
+SportAPI response examples in documentation are not a substitute for actual authenticated response testing. No fictional NBA data should be seeded. Injury or defender metrics remain unavailable unless another licensed source is integrated.
 
 ## Development
+Use a supported Node.js version. Run \`npm ci\`, copy \`.env.example\` to \`.env.local\`, configure the Supabase public URL and publishable key, then run \`npm run dev\`. Verify with \`npm test\`, \`npm run typecheck\`, and \`npm run build\`.
 
-Use a current supported Node.js runtime. Run `npm ci`, copy `.env.example` to `.env.local`, supply the public Supabase URL and publishable key, then run `npm run dev`. Run `npm test`, `npm run typecheck`, and `npm run build` for verification.
+Do not expose service-role keys or SportAPI credentials in browser-visible variables.
 
-## Deployment
-
-The current project was deployed through the Vercel source API. Vercel GitHub integration is not installed, so repository pushes do not automatically redeploy. Connect the integration to this repository to enable that workflow. Set `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (the public publishable key), and `NEXT_PUBLIC_SITE_URL` to the final HTTPS origin. Confirm the exact variable names in `.env.example`. Never put a service-role or provider API key in browser-visible variables.
-
-The Supabase schema and scheduler are in `supabase/migrations`. The `sync-nba` Edge Function uses Supabase's native server credentials and a Vault-backed bearer secret for scheduled calls. Configure `BALLDONTLIE_API_KEY` and `BDL_PLAN` only as Edge Function secrets. Default free mode covers schedule data; player box scores and injuries require a provider plan that includes those endpoints. Do not purchase a plan without the owner's approval.
-
-Optional email authentication requires the production site URL and redirect allowlist in Supabase Auth. Email delivery and cloud-pick sign-in still need end-to-end verification after deployment. Public analytics does not require an account.
-
-`tests/database.sql` is a rollback-only integration check for an already migrated database. Tests use isolated fixtures; no example records are published to the live data tables.
-
-## Data and limitations
-
-The provider adapter uses the documented BALLDONTLIE API. ESPN and Real Sports are not scraped. Refresh attempts and successful data retrieval are reported separately. Missing values remain unknown, pushes are counted separately, and DNPs are excluded from historical played-game samples. Game-level teammate splits are not on-court lineup measurements. Saved picks are research records, not wager placement.
-
-Remaining launch checks: activate provider ingestion and verify schedule freshness, actual player charts, email authentication, and saved-pick behavior with real records. The public application is available; NBA data activation remains incomplete.
+## Remaining limitations
+Model baselines are experimental and unvalidated. Historical hit rates are not predictive probabilities. Real App and Stake.com are not automatically integrated; user-entered lines and odds remain independent. Public analytics access requires no account, but saved-pick auth flows still need production verification.
