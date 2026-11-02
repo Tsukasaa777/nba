@@ -10,3 +10,18 @@
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 .brand > span:last-child { font-size: 16px; }
+
+/* Team-by-team live injury comparison */
+.injury-watch{margin-bottom:22px}
+.injury-two-teams{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin:16px 0}
+.injury-team-card{background:#101b2a;border:1px solid #293b55;border-radius:12px;padding:18px;min-width:0}
+.injury-team-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.injury-team-header h3{font-size:15px;margin:0}
+.injury-player-list{display:flex;flex-direction:column;gap:0}
+.injury-player{border-top:1px solid #293b55;padding:12px 0;display:flex;flex-direction:column;gap:5px}
+.injury-person{display:flex;align-items:center;justify-content:space-between;gap:9px;flex-wrap:wrap}
+.injury-person strong{font-size:12px;color:#f3f7fc}
+.injury-player small{font-size:10px;line-height:1.5;color:#9bb3d2}
+.injury-game-select{display:block;max-width:420px;margin:14px 0}
+.injury-watch .muted{font-size:11px}
+@media(max-width:760px){.injury-two-teams{grid-template-columns:1fr}.injury-team-card{padding:15px}}
