@@ -70,17 +70,32 @@ Deno.serve(async request => {
     statsOk = true;
     // Refresh rosters only once per day; otherwise game-player lists have no active searchable players.
     if (!health.roster_success || Date.now() - Date.parse(health.roster_success) > 86_400_000) {
+      // NBA league profile provides data.teams; roster updates are batched across
+      // successive scheduler runs rather than risking the free provider's quota.
       const league = await api.get("leagues/nba");
       const teamsRaw = league.data?.teams;
-      if (!Array.isArray(teamsRaw) || !teamsRaw.length) throw new Error("SportAPI NBA league roster list unavailable");
+      if (!Array.isArray(teamsRaw) || teamsRaw.length < 20)
+        throw new Error("SportAPI NBA league team directory unavailable");
+      await ingest({ teams: teamsRaw.map(normalizeSportTeam) });
+      const { data: currentRosters, error: rosterQueryError } = await db.from("players")
+        .select("team_id,fetched_at").eq("active",true).limit(800);
+      if (rosterQueryError) throw new Error("Cannot check NBA roster freshness");
+      const threshold = now.getTime() - 86_400_000;
+      const freshTeamIds = new Set((currentRosters ?? [])
+        .filter((p: any) => Number.isFinite(Date.parse(p.fetched_at))
+          && Date.parse(p.fetched_at) >= threshold)
+        .map((p: any) => p.team_id));
+      const staleTeams = teamsRaw.filter((t: any) => !freshTeamIds.has("sportapi:" + t.id));
+      const selected = staleTeams.slice(0, 10);
       const players = [];
-      for (const t of teamsRaw) {
-        const result = await api.get("teams/" + t.id + "/roster");
-        if (!Array.isArray(result.data)) throw new Error("SportAPI roster response missing player array");
-        players.push(...normalizeSportRoster(t.id, result.data));
+      for (const t of selected) {
+        const roster = await api.get("teams/" + t.id + "/roster");
+        if (!Array.isArray(roster.data)) throw new Error("NBA roster response has no player list");
+        players.push(...normalizeSportRoster(t.id, roster.data));
       }
-      await ingest({ teams: teamsRaw.map(normalizeSportTeam), players });
-      rosterOk = true;
+      if (players.length) await ingest({ players });
+      // Mark full-roster success only after every team was refreshed recently.
+      rosterOk = staleTeams.length <= selected.length;
     }
     // Slow historical backfill, four dates/day maximum, respecting the 14k/month free quota.
     if (now.getUTCHours() % 6 === 0 && now.getUTCMinutes() < 15) {
