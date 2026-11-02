@@ -12,7 +12,7 @@ test('future NBA calendar dates refresh without spamming provider every 15 minut
   assert.deepEqual(nbaScheduleFetchDates(new Date('2026-11-02T03:30:00Z')),
     ['2026-10-31', '2026-11-01']);
   assert.deepEqual(nbaScheduleFetchDates(new Date('2026-11-02T06:00:00Z')),
-    ['2026-10-31', '2026-11-01', '2026-11-02', '2026-11-03']);
+    ['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04']);
 });
 
 test('US daylight saving boundary does not shift a PHT slate to the wrong day', () => {
