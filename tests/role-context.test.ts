@@ -16,7 +16,7 @@ const players:Player[]=[
  {id:'sportapi:5',name:'Bench Center',position:'C',team_id:home.id}
 ];
 const samples=players.flatMap(p=>Array.from({length:3},(_,i)=>({
- player_id:p.id,team_id:p.team_id,minutes:p.id==='sportapi:5'?4:32,
+ player_id:p.id,team_id:p.team_id!,minutes:p.id==='sportapi:5'?4:32,
  played:true,played_at:'2026-10-2'+(i+1)+'T23:00:00Z',
  stats:{pts:p.id==='sportapi:4'?24:15,ast:p.id==='sportapi:4'?7:3,reb:5}
 })));
