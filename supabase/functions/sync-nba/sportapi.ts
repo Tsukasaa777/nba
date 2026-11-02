@@ -22,6 +22,18 @@ const etDate = (iso: string) => {
   return field("year") + "-" + field("month") + "-" + field("day");
 };
 export const easternDate = (date: Date) => etDate(date.toISOString());
+/** Include upcoming NBA dates at limited intervals to keep scheduled games visible in Manila. */
+export function nbaScheduleFetchDates(now: Date): string[] {
+  const today = easternDate(now);
+  const dates = [offsetDate(today, -1), today];
+  // Refresh tomorrow's ET slate hourly, and the following day every six hours.
+  // Both dates can contain games in upcoming Philippine calendar dates.
+  if (now.getUTCMinutes() < 15) {
+    dates.push(offsetDate(today, 1));
+    if (now.getUTCHours() % 6 === 0) dates.push(offsetDate(today, 2));
+  }
+  return dates;
+}
 export function offsetDate(date: string, days: number) {
   return new Date(new Date(date + "T12:00:00Z").getTime() + days * 86_400_000).toISOString().slice(0, 10);
 }
