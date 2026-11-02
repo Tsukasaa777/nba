@@ -16,7 +16,7 @@ function TeamInjuries({name,abbreviation,items,hasFeed}:{name:string;abbreviatio
   {!hasFeed?<p className="fineprint">Injury source unavailable. Player availability cannot be confirmed.</p>:
    !items.length?<p className="fineprint">No active ESPN injury entries found for this team. This does not confirm that every player is available.</p>:
    <div className="injury-player-list">{items.map(item=><div className="injury-player" key={item.id}>
-     <div className="injury-person"><strong>{item.player}</strong><span className={'tag '+statusTone(item.status)}>{item.status}</span></div>
+     <div className="injury-person"><strong>{item.player} <span className="tag">{item.position || 'Pos. unverified'}</span></strong><span className={'tag '+statusTone(item.status)}>{item.status}</span></div>
      <small>{item.detail||'Reason not specified'}{item.returnDate?' · Listed return: '+item.returnDate:''}</small>
      {item.reportedAt&&<small>Last player report: {formatPHT(item.reportedAt)}</small>}
     </div>)}</div>}

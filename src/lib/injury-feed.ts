@@ -1,5 +1,5 @@
 export type InjuryEntry = {
- id: string; teamName: string; player: string; status: string;
+ id: string; teamName: string; player: string; position: string | null; status: string;
  detail: string | null; reportedAt: string | null; returnDate: string | null;
 };
 export type InjurySnapshot = {
@@ -24,7 +24,9 @@ export function normalizeInjuryFeed(payload:any,retrievedAt:string):InjurySnapsh
    const parts=[clean(raw?.details?.side,40),clean(raw?.details?.type,70),
      clean(raw?.details?.detail,90)].filter(v=>v&&v!=='Not Specified');
    reports.push({
-    id:'espn:'+clean(raw?.id,30)+':'+teamName,teamName,player,status,
+    id:'espn:'+clean(raw?.id,30)+':'+teamName,teamName,player,
+    position: /^(PG|SG|SF|PF|C|G|F|F-C|G-F|C-F)$/.test(clean(raw?.athlete?.position?.abbreviation,6).toUpperCase())?
+     clean(raw.athlete.position.abbreviation,6).toUpperCase():null,status,
     detail:parts.length?parts.join(' · '):null,
     reportedAt:iso(raw?.date),
     returnDate:/^\d{4}-\d{2}-\d{2}$/.test(raw?.details?.returnDate||'')?raw.details.returnDate:null,

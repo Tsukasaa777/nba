@@ -25,3 +25,12 @@
 .injury-game-select{display:block;max-width:420px;margin:14px 0}
 .injury-watch .muted{font-size:11px}
 @media(max-width:760px){.injury-two-teams{grid-template-columns:1fr}.injury-team-card{padding:15px}}
+
+/* Evidence-based opponent / teammate matchups */
+.matchup-inference h3{font-size:15px;margin:0 0 12px}
+.matchup-inference h3:not(:first-child){margin-top:23px}
+.matchup-inference .candidate-list{display:flex;flex-direction:column;gap:11px;margin:15px 0}
+.matchup-inference .candidate-card{border:1px solid #293e59;background:#0f1b2b;padding:12px;border-radius:10px}
+.matchup-inference .candidate-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.matchup-inference .candidate-head strong{font-size:12px;color:#e9f1fb}
+.matchup-inference .candidate-card .fineprint{font-size:10px;line-height:1.6;margin:7px 0 0}
