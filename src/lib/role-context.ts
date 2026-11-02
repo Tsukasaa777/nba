@@ -1,7 +1,7 @@
 import type {Game,Player} from './types';
 export type RecentBox = {player_id:string;team_id:string;minutes:number|null;played:boolean;stats:Record<string,number|null>;played_at:string};
 export type Candidate = {id:string;name:string;position:string|null;games:number;avgMinutes:number;pts:number;ast:number;reb:number;match:'similar'|'switch';note:string};
-export type RoleContext = {playerName:string;position:string|null;opponent:string;defenders:Candidate[];teammates:Candidate[];coverage:{recentRecords:number;description:string}};
+export type RoleContext = {playerName:string;position:string|null;opponent:string;defenders:Candidate[];teammates:Candidate[];coverage:{recentRecords:number;description:string};positionAllowed?:import('./position-allowances').AllowedProfile|null};
 export const roleGroup=(s:string|null|undefined):'guard'|'wing'|'big'|'unknown'=> {
  const p=(s||'').toUpperCase();
  if(p==='C'||p==='PF'||p==='F-C'||p==='C-F')return 'big';

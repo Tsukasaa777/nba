@@ -1,6 +1,8 @@
 import {NextRequest,NextResponse} from 'next/server';
 import {publicDatabase} from '@/lib/supabase';
-import {GAME_SELECT} from '@/lib/data';
+import {GAME_SELECT,loadTeamGames} from '@/lib/data';
+import {observedPositionAllowances} from '@/lib/position-allowances';
+import type {PositionBox} from '@/lib/position-allowances';
 import {isSupportedNbaId} from '@/lib/provider-id';
 import {buildRoleContext} from '@/lib/role-context';
 import type {Game,Player} from '@/lib/types';
@@ -30,6 +32,17 @@ export async function GET(req:NextRequest){
   ]);
   if(rosters.error||boxScores.error)throw new Error('Matchup context unavailable');
   const result=buildRoleContext(game,player,rosters.data as Player[],boxScores.data as RecentBox[]);
-  return NextResponse.json(result,{headers:{'Cache-Control':'public,s-maxage=120,stale-while-revalidate=180'}});
+  const opposingId=game.home_team_id===player.team_id?game.away_team_id:game.home_team_id;
+  // Only completed historical NBA games before selected matchup; no future leakage.
+  const opponentGames=(await loadTeamGames(opposingId,cutoff)).slice(0,10);
+  const ids=opponentGames.map(g=>g.id);
+  let positionAllowed=null;
+  if(ids.length){
+   const {data:against,error:againstError}=await db.from('box_scores')
+    .select('game_id,team_id,minutes,played,stats,player:players!box_scores_player_id_fkey(position)')
+    .in('game_id',ids).neq('team_id',opposingId).eq('played',true).limit(400);
+   if(!againstError) positionAllowed=observedPositionAllowances(against as unknown as PositionBox[],player.position,opposingId);
+  }
+  return NextResponse.json({...result,positionAllowed},{headers:{'Cache-Control':'public,s-maxage=120,stale-while-revalidate=180'}});
  }catch{return NextResponse.json({error:'Verified matchup statistics could not be loaded'},{status:503});}
 }
