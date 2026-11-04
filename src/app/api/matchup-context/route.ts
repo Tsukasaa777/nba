@@ -2,6 +2,7 @@ import {NextRequest,NextResponse} from 'next/server';
 import {publicDatabase} from '@/lib/supabase';
 import {GAME_SELECT,loadTeamGames} from '@/lib/data';
 import {observedPositionAllowances} from '@/lib/position-allowances';
+import {rotationFromRecords,opponentComparison} from '@/lib/research-visuals';
 import type {PositionBox} from '@/lib/position-allowances';
 import {isSupportedNbaId} from '@/lib/provider-id';
 import {buildRoleContext} from '@/lib/role-context';
@@ -37,12 +38,23 @@ export async function GET(req:NextRequest){
   const opponentGames=(await loadTeamGames(opposingId,cutoff)).slice(0,10);
   const ids=opponentGames.map(g=>g.id);
   let positionAllowed=null;
+  let comparison:ReturnType<typeof opponentComparison>={similar:[],matrix:[]};
   if(ids.length){
    const {data:against,error:againstError}=await db.from('box_scores')
-    .select('game_id,team_id,minutes,played,stats,player:players!box_scores_player_id_fkey(position)')
+    .select('game_id,team_id,minutes,played,stats,player:players!box_scores_player_id_fkey(id,name,position)')
     .in('game_id',ids).neq('team_id',opposingId).eq('played',true).limit(400);
-   if(!againstError) positionAllowed=observedPositionAllowances(against as unknown as PositionBox[],player.position,opposingId);
+   if(!againstError){
+    const sample=against as unknown as PositionBox[];
+    positionAllowed=observedPositionAllowances(sample,player.position,opposingId);
+    comparison=opponentComparison(sample,opposingId,player.position,opponentGames);
+   }
   }
-  return NextResponse.json({...result,positionAllowed},{headers:{'Cache-Control':'public,s-maxage=120,stale-while-revalidate=180'}});
+  const rotations={
+    home:rotationFromRecords(rosters.data as Player[],boxScores.data as RecentBox[],game.home_team_id),
+    away:rotationFromRecords(rosters.data as Player[],boxScores.data as RecentBox[],game.away_team_id)
+  };
+  return NextResponse.json({...result,positionAllowed,rotations,...comparison},{
+   headers:{'Cache-Control':'public,s-maxage=120,stale-while-revalidate=180'}});
+
  }catch{return NextResponse.json({error:'Verified matchup statistics could not be loaded'},{status:503});}
 }
