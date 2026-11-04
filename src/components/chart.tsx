@@ -16,11 +16,13 @@ export default function GameChart({rows,market,line,side}:{rows:BoxScore[];marke
  const max=Math.max(Number.isFinite(line)?line*1.3:0,...rows.map(r=>valueOf(r,market)||0),5)*1.12;
  const total=rows.filter(r=>{const v=valueOf(r,market);return v!==null&&v!==line;}).length;
  const wins=rows.filter(r=>{const v=valueOf(r,market);return v!==null&&(side==='over'?v>line:v<line);}).length;
+ const observed=rows.map(r=>valueOf(r,market)).filter((v):v is number=>typeof v==='number'&&Number.isFinite(v));
+ const observedAvg=observed.length?observed.reduce((a,b)=>a+b,0)/observed.length:null;
  if(!rows.length)return <div className="chart-empty"><div className="chart-grid"/><span className="empty-chart-icon">▥</span><h3>No qualifying games yet</h3><p>Verified game logs will appear here. Try All games or a broader filter.</p></div>;
  return <div className="research-chart">
   <div className="chart-dashboard-head">
    <div><small>LAST {rows.length} VERIFIED GAMES</small><strong>{total?Math.round(wins/total*100)+'%':'—'}</strong><span>{wins} of {total} settled · {rows.length-total} pushes</span></div>
-   <div><small>AVERAGE</small><strong>{fmt(average(rows,market==='pts'?'pts':market==='reb'?'reb':market==='ast'?'ast':market==='fg3m'?'fg3m':'minutes'))}</strong><span>{MARKETS[market].short} {['pr','pa','ra','pra','stl','blk','turnover'].includes(market)?'— see summary above':''}</span></div>
+   <div><small>AVERAGE</small><strong>{fmt(observedAvg)}</strong><span>{MARKETS[market].short} · verified sample</span></div>
    <div><small>SELECTED GAME</small><strong className="chart-selected-stat">{active?valueOf(active,market):'—'}</strong><span>{active?formatPHT(active.game.starts_at):'—'}</span></div>
   </div>
   <div className="chart-detail" aria-live="polite">{active&&<>
