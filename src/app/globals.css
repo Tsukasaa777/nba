@@ -127,3 +127,8 @@
  .rotation-set{font-size:9px;min-width:39px}
  .rotation-slider{gap:3px}
 }
+
+.stat-market-tabs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:18px 0 15px;padding:5px;background:#0d1726;border:1px solid #293c55;border-radius:9px}
+.stat-market-tabs button{flex:1;min-width:47px;border:1px solid transparent;background:transparent;color:#89a7ce;border-radius:7px;padding:10px 8px;font-size:10px;font-weight:750;letter-spacing:.5px}
+.stat-market-tabs button:hover{background:#22364e;color:#d9eaff}
+.stat-market-tabs button.selected{background:#284f78;color:#bfe5ff;border-color:#4776a8}
