@@ -23,7 +23,7 @@ export function rotationFromRecords(players:Player[],records:RecentBox[],teamId:
  }).filter((r):r is RotationPlayer=>r!==null).sort((a,b)=>b.minutes-a.minutes).slice(0,16);
 }
 
-type ComparableRow=PositionBox & {played_at?:string;player?:{id:string;name:string;position:string|null}|null};
+type ComparableRow=PositionBox & {played_at?:string;player?:{id?:string;name?:string;position:string|null}|null};
 export function opponentComparison(rows:ComparableRow[],opponent:string,playerPosition:string|null,games:Game[]):{
  similar:SimilarResult[];matrix:HeatmapCell[]
 }{
@@ -36,7 +36,7 @@ export function opponentComparison(rows:ComparableRow[],opponent:string,playerPo
   r.minutes!==null&&r.minutes!==undefined&&r.minutes>0&&dates.has(r.game_id))
  .sort((a,b)=>String(dates.get(b.game_id)).localeCompare(String(dates.get(a.game_id))))
  .slice(0,12).map(r=>({
-  playerId:r.player!.id,name:r.player!.name,position:r.player!.position,
+  playerId:String(r.player!.id),name:String(r.player!.name),position:r.player!.position,
   gameId:r.game_id,date:dates.get(r.game_id)!,minutes:r.minutes!,
   pts:stat(r.stats,'pts'),reb:stat(r.stats,'reb'),ast:stat(r.stats,'ast'),fg3m:stat(r.stats,'fg3m')
  }));
