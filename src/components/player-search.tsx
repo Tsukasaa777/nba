@@ -50,8 +50,8 @@ export default function PlayerSearch({dataset}:{dataset:Dataset}){
  }),[logs]);
  return <div className="player-finder-layout">
   <section className="panel player-finder-list">
-   <div className="player-search-title"><div><p className="eyebrow">NBA PLAYER DIRECTORY</p><h2>Find any player</h2></div><span className="player-search-count"><Users size={14}/>{dataset.players.length} tracked</span></div>
-   <p className="fineprint">Search our verified active NBA roster—no matchup selection needed.</p>
+   <div className="player-search-title"><div><p className="eyebrow">NBA PLAYER DIRECTORY</p><h2>Player search</h2></div><span className="player-search-count"><Users size={14}/>{dataset.players.length} tracked</span></div>
+   
    <label className="player-search-field" htmlFor="nba-player-query"><Search size={18}/><input id="nba-player-query" autoComplete="off" type="search"
     placeholder="Search name, team, or position…" value={search} onChange={e=>setSearch(e.target.value)}/>
     {search&&<button type="button" aria-label="Clear player search" onClick={()=>setSearch('')}><X size={15}/></button>}
@@ -77,15 +77,15 @@ export default function PlayerSearch({dataset}:{dataset:Dataset}){
       <ArrowRight className="player-result-chevron" size={15}/>
      </Link>)}
    </div>
-   <p className="fineprint player-finder-foot">Player availability and roster assignments depend on the latest imported database update. Historical game logs may be incomplete.</p>
+   <p className="fineprint player-finder-foot">Data coverage varies by player.</p>
   </section>
   <div className="player-inspector">
    {!selected?<section className="panel player-search-welcome">
      <div className="search-empty-glyph"><BarChart3 size={30}/></div>
-     <p className="eyebrow">PLAYER ANALYSIS</p><h2>Every player's story, in one search.</h2>
-     <p>Choose an NBA player on the left to open recent game logs, scoring trends, rebounds, assists, and a detailed prop research chart.</p>
+     <p className="eyebrow">PLAYER ANALYSIS</p><h2>Select a player</h2>
+     <p>Game logs, trends, and player props.</p>
      <div className="player-search-hints"><span>PTS</span><span>REB</span><span>AST</span><span>3PM</span><span>PRA</span><span>L5 / L10 / L20</span></div>
-     <p className="fineprint">Browse anyone from the roster—even when they are not on tomorrow's slate.</p>
+     
     </section>:
     <><section className="panel player-spotlight">
      <div className="player-spotlight-top"><div className="player-spotlight-avatar">{selected.name.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase()}</div>
@@ -120,7 +120,7 @@ export default function PlayerSearch({dataset}:{dataset:Dataset}){
       error?<div className="player-no-logs">Game history unavailable. Please try again later.</div>:
       !qualified.length||!validLine?<div className="player-no-logs"><Database size={23}/>No qualifying player game logs are available yet.</div>:
       <GameChart rows={qualified} market={market} line={researchLine!} side={side}/>}
-     <p className="fineprint">Historical hit rates describe imported records and are not predicted probabilities or betting recommendations. Full matchup and injury context remains in the Player Prop Lab.</p>
+     <p className="fineprint">Observed results only. Full matchup data: <Link href={'/lab?player='+encodeURIComponent(selected.id)} className="text-link">Prop Lab</Link>.</p>
     </section></>}
   </div>
  </div>;
