@@ -104,7 +104,7 @@ export default function LeagueDashboard({sport,section,initialDate}:{sport:Extra
     <div className="sport-hub">
      {section==='overview'&&<section className="panel sport-overview">
       <p className="eyebrow">YOUR {sport.toUpperCase()} SECTOR</p>
-      <h2>{sport==='wnba'?'Women's basketball research':'Baseball research workspace'}</h2>
+      <h2>{sport==='wnba'?"Women's basketball research":'Baseball research workspace'}</h2>
       <p>Every game, team and player stat here belongs to {sport.toUpperCase()}. NBA tools remain in the NBA section.</p>
       <div className="sport-overview-actions">
        <Link className="primary-button" href={'/'+sport+'/games'}>Browse {sport.toUpperCase()} games <ChevronRight size={16}/></Link>
