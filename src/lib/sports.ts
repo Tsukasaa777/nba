@@ -82,10 +82,12 @@ export function normalizeWnbaBoxscore(payload:any):SportBoxRow[]{
      const i=keys.indexOf(key);
      return i>=0?entry.stats?.[i]??null:null;
     };
+    const fg3=lookup('3PT');
+    const made3=typeof fg3==='string'&&/^\d+-\d+$/.test(fg3)?Number(fg3.split('-')[0]):fg3;
     rows.push({playerId:'wnba:'+a.id,name:a.displayName,team,position:text(a.position?.abbreviation)||null,
      category:'basketball',metrics:{
       MIN:lookup('MIN'),PTS:lookup('PTS'),REB:lookup('REB'),AST:lookup('AST'),
-      '3PM':lookup('3PT'),STL:lookup('STL'),BLK:lookup('BLK')}});
+      '3PM':made3,STL:lookup('STL'),BLK:lookup('BLK')}});
    }
   }
  }
