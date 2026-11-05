@@ -41,6 +41,7 @@ test('WNBA stat mapping uses actual ESPN group names and DNP exclusion',()=>{
  assert.equal(rows[0].playerId,'wnba:22');
  assert.equal(rows[0].metrics.PTS,'21');
  assert.equal(rows[0].metrics.REB,'8');
+ assert.equal(rows[0].metrics['3PM'],2);
 });
 test('MLB stats separate batting, pitching and correctly derive total bases',()=>{
  const rows=normalizeMlbBoxscore({teams:{
