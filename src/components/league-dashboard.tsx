@@ -79,21 +79,21 @@ export default function LeagueDashboard({sport,section,initialDate}:{sport:Extra
  const choose=(id:string)=>{setGameId(id);};
  return <div className="workspace">
   <aside className={'sidebar sport-page-sidebar '+(mobile?'mobile-open':'')}>
-   <Link className="brand" href="/" aria-label="The Tsukasa Picks"><span className="brand-mark"><BarChart3 size={25}/></span><span>The Tsukasa <b>Picks</b><small>BEYOND THE BOX SCORE.</small></span></Link>
+   <Link className="brand" href="/" aria-label="The Tsukasa Picks"><span className="brand-mark"><BarChart3 size={25}/></span><span>The Tsukasa <b>Picks</b></span></Link>
    <button className="mobile-close icon-btn" onClick={()=>setMobile(false)} aria-label="Close navigation"><X size={20}/></button>
    <SportSwitcher active={sport}/>
    <div className="nav-caption">{sport.toUpperCase()} RESEARCH</div>
    <nav aria-label={sport.toUpperCase()+' navigation'}>{links.map(l=><Link key={l.id} className={'nav-item '+(section===l.id?'active':'')} aria-current={section===l.id?'page':undefined} href={l.href} onClick={()=>setMobile(false)}>{l.icon}<span>{l.text}</span></Link>)}</nav>
-   <div className="sidebar-bottom"><div className="sidebar-note"><strong>One sport at a time.</strong><p>{sport==='wnba'?'WNBA scores and player box scores.':'MLB games, batting, and pitching.'}<br/>No NBA-only models mixed into this section.</p></div>
-    <div className="sport-note">Source: {sourceFor[sport]}. Availability and licensing may change.</div></div>
+   <div className="sidebar-bottom">
+    </div>
   </aside>
   <div className="main-shell">
    <header className="topbar"><button className="icon-btn mobile-menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={21}/></button>
     <div className="breadcrumb">Sports <ChevronRight size={14}/><b>{sport.toUpperCase()}</b><ChevronRight size={13}/>{title}</div>
     <div className="topbar-right"><span className="timezone">PHT <span>UTC +08:00</span></span></div></header>
    <main id="main-content">
-    <div className="page-heading"><div><p className="eyebrow">{sport.toUpperCase()} · INDEPENDENT RESEARCH</p>
-     <h1>{title}</h1><p>{sport==='wnba'?'WNBA games and player box scores, separate from NBA.':'MLB baseball games, batter statistics, and pitcher statistics.'}</p></div>
+    <div className="page-heading"><div><p className="eyebrow">{sport.toUpperCase()}</p>
+     <h1>{title}</h1><p>{sport==='wnba'?'Games and player stats':'Games, batting and pitching'}</p></div>
      <div className="date-control">
       <button aria-label="Previous day" onClick={()=>changeDate(dayShift(date,-1))}><ChevronLeft size={17}/></button>
       <input type="date" aria-label={sport.toUpperCase()+' date in Philippine time'} value={date} onChange={e=>e.target.value&&changeDate(e.target.value)}/>
@@ -105,7 +105,7 @@ export default function LeagueDashboard({sport,section,initialDate}:{sport:Extra
      {section==='overview'&&<section className="panel sport-overview">
       <p className="eyebrow">YOUR {sport.toUpperCase()} SECTOR</p>
       <h2>{sport==='wnba'?"Women's basketball research":'Baseball research workspace'}</h2>
-      <p>Every game, team and player stat here belongs to {sport.toUpperCase()}. NBA tools remain in the NBA section.</p>
+      
       <div className="sport-overview-actions">
        <Link className="primary-button" href={'/'+sport+'/games'}>Browse {sport.toUpperCase()} games <ChevronRight size={16}/></Link>
        <Link className="secondary-button" href={'/'+sport+'/boxscores'}>Player box scores <ChevronRight size={15}/></Link>
@@ -115,7 +115,7 @@ export default function LeagueDashboard({sport,section,initialDate}:{sport:Extra
       <div className="section-heading"><div><p className="eyebrow">{sport.toUpperCase()} SCHEDULE</p><h2>{section==='boxscores'?'Select a game':'Games & results'}</h2></div>
        <span className="sport-source-tag">{sourceFor[sport]}</span>
       </div>
-      <p className="sport-note">Showing games scheduled for <b>{date} Philippine Time</b>. Dates reset automatically at 2 PM PHT while Auto is enabled.</p>
+      <p className="sport-note">{date} · PHT</p>
       {status==='loading'?<p className="sport-empty">Loading verified {sport.toUpperCase()} games…</p>:
        status==='error'?<p role="alert" className="sport-empty">{message}</p>:
        !games.length?<div className="sport-empty">
@@ -141,7 +141,7 @@ export default function LeagueDashboard({sport,section,initialDate}:{sport:Extra
        <><h3>Batters</h3><BoxTable rows={rows} category="batting"/><h3 className="sport-subheading">Pitchers</h3><BoxTable rows={rows} category="pitching"/></>}
       <p className="sport-note">Game-level observations only. No fabricated L10 hit rates, projections, or odds. {sourceFor[sport]}.</p>
      </section>}
-     <footer className="sport-footer">The Tsukasa Picks · {sport.toUpperCase()} research · Data shown in Philippine Time · Descriptive statistics, not betting recommendations.</footer>
+     <footer className="sport-footer">© The Tsukasa Picks · {sport.toUpperCase()}</footer>
     </div>
    </main>
   </div>
