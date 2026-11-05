@@ -6,26 +6,14 @@ import {useSearchParams} from 'next/navigation';
 import {ArrowRight,BarChart3,Database,Filter,Search,Users,X} from 'lucide-react';
 import {MARKETS,qualifying,summarize,valueOf,formatPHT} from '@/lib/analytics';
 import type {BoxScore,Dataset,Market,Player} from '@/lib/types';
+import {filterPlayerDirectory,suggestedResearchLine} from '@/lib/player-finder';
+import type {PlayerPositionFilter as PositionFilter} from '@/lib/player-finder';
 
 const GameChart=dynamic(()=>import('./chart'),{loading:()=> <div className="chart-empty">Loading player chart…</div>});
 const SEARCH_MARKETS:Market[]=['pts','reb','ast','fg3m','pr','pa','pra'];
-type PositionFilter='all'|'guard'|'forward'|'center';
-function playerGroup(position:string|null):PositionFilter{
- const p=(position||'').toUpperCase();
- if(p==='C'||p==='C-F'||p==='F-C')return 'center';
- if(p==='F'||p==='SF'||p==='PF'||p==='F-G')return 'forward';
- if(p==='G'||p==='PG'||p==='SG'||p==='G-F')return 'guard';
- return 'all';
-}
 function initialPosition(p:Player){return p.position?.trim().toUpperCase()||'POS?';}
 function metric(v:number|null,digits=1){return v===null||!Number.isFinite(v)?'—':v.toFixed(digits);}
 function pct(v:number|null){return v===null?'—':Math.round(v*100)+'%';}
-function medianLine(logs:BoxScore[],market:Market):number|null{
- const values=qualifying(logs,market).map(r=>valueOf(r,market)).filter((v):v is number=>typeof v==='number'&&Number.isFinite(v)).sort((a,b)=>a-b);
- if(!values.length)return null;
- const mid=values.length%2?values[(values.length-1)/2]:(values[values.length/2-1]+values[values.length/2])/2;
- return Math.floor(mid)+0.5;
-}
 export default function PlayerSearch({dataset}:{dataset:Dataset}){
  const params=useSearchParams();
  const [search,setSearch]=useState(''),[team,setTeam]=useState('all'),[position,setPosition]=useState<PositionFilter>('all');
@@ -36,15 +24,7 @@ export default function PlayerSearch({dataset}:{dataset:Dataset}){
  const selected=dataset.players.find(p=>p.id===selectedId)||null;
  const teams=useMemo(()=>[...new Map(dataset.players.filter(p=>p.team?.abbreviation).map(p=>[p.team_id!,p.team!])).entries()]
    .map(([id,t])=>({id,name:t.name,code:t.abbreviation})).sort((a,b)=>a.name.localeCompare(b.name)),[dataset.players]);
- const matches=useMemo(()=>{
-   const needle=search.trim().toLocaleLowerCase();
-   return dataset.players.filter(p=>{
-    if(team!=='all'&&p.team_id!==team)return false;
-    if(position!=='all'&&playerGroup(p.position)!==position)return false;
-    const haystack=(p.name+' '+(p.team?.name||'')+' '+(p.team?.abbreviation||'')+' '+(p.position||'')).toLocaleLowerCase();
-    return !needle||haystack.includes(needle);
-   });
- },[dataset.players,search,team,position]);
+ const matches=useMemo(()=>filterPlayerDirectory(dataset.players,search,team,position),[dataset.players,search,team,position]);
  useEffect(()=>{
    setLogs([]);setError('');
    if(!selectedId)return;
@@ -60,7 +40,7 @@ export default function PlayerSearch({dataset}:{dataset:Dataset}){
  },[selectedId,dataset.health?.stats_success]);
  useEffect(()=>{setMarket('pts');setWindowSize(10);setManualLine('');setSide('over');},[selectedId]);
  const qualified=useMemo(()=>qualifying(logs,market,{window:windowSize||undefined}),[logs,market,windowSize]);
- const suggestedLine=useMemo(()=>medianLine(logs,market),[logs,market]);
+ const suggestedLine=useMemo(()=>suggestedResearchLine(logs,market),[logs,market]);
  const researchLine=manualLine.trim()!==''?Number(manualLine):suggestedLine;
  const validLine=researchLine!==null&&Number.isFinite(researchLine)&&researchLine>=0&&researchLine<=300;
  const summary=useMemo(()=>validLine?summarize(qualified,market,researchLine!,side):null,[qualified,market,researchLine,side,validLine]);
