@@ -108,12 +108,15 @@ export function normalizeSportBoxScore(gameRaw: RecordJson, response: RecordJson
         reb: coalesceNumber(s.reb, s.rebounds, s.treb),
         ast: coalesceNumber(s.ast, s.assists),
         fg3m: coalesceNumber(s.fg3m, s.tpm, s.three_pt_made),
+        fg3a: coalesceNumber(s.tpa, s.fg3a, s.three_pt_attempted),
         stl: coalesceNumber(s.stl, s.steals),
         blk: coalesceNumber(s.blk, s.blocks),
         turnover: coalesceNumber(s.turnover, s.tov, s.turnovers),
         fga: coalesceNumber(s.fga, s.field_goals_attempted),
         fgm: coalesceNumber(s.fgm, s.field_goals_made),
-        fta: coalesceNumber(s.fta, s.free_throws_attempted)
+        fta: coalesceNumber(s.fta, s.free_throws_attempted),
+        ftm: coalesceNumber(s.ftm, s.free_throws_made),
+        pf: coalesceNumber(s.pf, s.personal_fouls, s.fouls)
       };
       players.set(playerId, { id: playerId, name: String(p.name), position: p.position ?? null, team_id: teamId, active: true });
       boxes.push({ game_id: normGame.id, player_id: playerId, team_id: teamId,
