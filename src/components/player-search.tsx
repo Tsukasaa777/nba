@@ -9,6 +9,8 @@ import {MARKETS,qualifying,summarize,valueOf,formatPHT} from '@/lib/analytics';
 import type {BoxScore,Dataset,Market,Player} from '@/lib/types';
 import {filterPlayerDirectory,suggestedResearchLine} from '@/lib/player-finder';
 import type {PlayerPositionFilter as PositionFilter} from '@/lib/player-finder';
+import {isEarlyMarket,mergeEarlyStats} from '@/lib/early-game';
+import type {EarlyGameRow} from '@/lib/early-game';
 
 const GameChart=dynamic(()=>import('./chart'),{loading:()=> <div className="chart-empty">Loading player chart…</div>});
 const SEARCH_MARKETS:Market[]=['pts','reb','ast','fg3m','pr','pa','pra'];
@@ -22,6 +24,7 @@ export default function PlayerSearch({dataset}:{dataset:Dataset}){
  const [side,setSide]=useState<'over'|'under'>('over'),[manualLine,setManualLine]=useState('');
  const [logs,setLogs]=useState<BoxScore[]>([]),[loading,setLoading]=useState(false),[error,setError]=useState('');
  const [profile,setProfile]=useState<PublicPlayerProfile|null>(null),[profileLoading,setProfileLoading]=useState(false),[photoFailed,setPhotoFailed]=useState(false);
+ const [earlyRows,setEarlyRows]=useState<EarlyGameRow[]>([]),[earlyLoading,setEarlyLoading]=useState(false),[earlyNote,setEarlyNote]=useState('');
  const selectedId=params.get('player')||'';
  const selected=dataset.players.find(p=>p.id===selectedId)||null;
  const teams=useMemo(()=>[...new Map(dataset.players.filter(p=>p.team?.abbreviation).map(p=>[p.team_id!,p.team!])).entries()]
@@ -54,9 +57,23 @@ export default function PlayerSearch({dataset}:{dataset:Dataset}){
   return()=>controller.abort();
  },[selectedId]);
 
- const qualified=useMemo(()=>qualifying(logs,market,{window:windowSize||undefined}),[logs,market,windowSize]);
- const suggestedLine=useMemo(()=>suggestedResearchLine(logs,market),[logs,market]);
- const researchLine=manualLine.trim()!==''?Number(manualLine):suggestedLine;
+ const earlyMode=isEarlyMarket(market);
+ useEffect(()=>{
+  setEarlyRows([]);setEarlyNote('');
+  if(!selectedId||!earlyMode)return;
+  const controller=new AbortController();
+  setEarlyLoading(true);
+  fetch('/api/players/'+encodeURIComponent(selectedId)+'/early',{signal:controller.signal})
+   .then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error||'Q1 data unavailable');return data;})
+   .then(data=>{if(!controller.signal.aborted){setEarlyRows(Array.isArray(data.rows)?data.rows:[]);setEarlyNote(data.coverage||'');}})
+   .catch(e=>{if(!controller.signal.aborted){setEarlyRows([]);setEarlyNote(String(e.message||e));}})
+   .finally(()=>{if(!controller.signal.aborted)setEarlyLoading(false);});
+  return()=>controller.abort();
+ },[selectedId,earlyMode]);
+ const combinedLogs=useMemo(()=>mergeEarlyStats(logs,earlyRows),[logs,earlyRows]);
+ const qualified=useMemo(()=>qualifying(combinedLogs,market,{window:windowSize||undefined}),[combinedLogs,market,windowSize]);
+ const suggestedLine=useMemo(()=>suggestedResearchLine(combinedLogs,market),[combinedLogs,market]);
+ const researchLine=manualLine.trim()!==''?Number(manualLine):market==='first_score'?0.5:suggestedLine;
  const validLine=researchLine!==null&&Number.isFinite(researchLine)&&researchLine>=0&&researchLine<=300;
  const summary=useMemo(()=>validLine?summarize(qualified,market,researchLine!,side):null,[qualified,market,researchLine,side,validLine]);
  const allMarkets=useMemo(()=>['pts','reb','ast','fg3m'].map(m=>{
@@ -135,6 +152,12 @@ export default function PlayerSearch({dataset}:{dataset:Dataset}){
      <div className="player-market-tabs" role="group" aria-label="Player stat market">
       {SEARCH_MARKETS.map(m=><button key={m} type="button" className={market===m?'active':''} aria-pressed={market===m}
        onClick={()=>{setMarket(m);setManualLine('');}}>{MARKETS[m].short}</button>)}
+      <label className="player-market-more">All markets <select aria-label="Choose player prop market" value={market}
+       onChange={e=>{setMarket(e.target.value as Market);setManualLine('');}}>
+        <optgroup label="Points & combinations">{(['pts','reb','ast','fg3m','pr','pa','ra','pra'] as Market[]).map(m=><option key={m} value={m}>{MARKETS[m].label}</option>)}</optgroup>
+        <optgroup label="Shooting, defense & fouls">{(['fg3a','fga','fta','ftm','stl','blk','pf','turnover'] as Market[]).map(m=><option key={m} value={m}>{MARKETS[m].label}</option>)}</optgroup>
+        <optgroup label="Early game · ESPN">{(['first_score','q1_pts','q1_ast','q1_reb'] as Market[]).map(m=><option key={m} value={m}>{MARKETS[m].label}</option>)}</optgroup>
+      </select></label>
      </div>
      <div className="player-chart-controls">
       <div className="segmented" role="group" aria-label="Game sample">{[5,10,20,0].map(w=><button key={w}
@@ -143,14 +166,14 @@ export default function PlayerSearch({dataset}:{dataset:Dataset}){
        value={manualLine} onChange={e=>setManualLine(e.target.value)}/></label>
       <div className="segmented" role="group" aria-label="Over or under"><button className={side==='over'?'selected':''} onClick={()=>setSide('over')}>Over</button><button className={side==='under'?'selected':''} onClick={()=>setSide('under')}>Under</button></div>
      </div>
-     <p className="fineprint">Reference threshold: <b>{validLine?researchLine:'Not available'}</b>. Initially based on the imported historical median, <b>not a sportsbook line</b>. Enter your own line for hit-rate analysis.</p>
+     <p className="fineprint">{earlyMode?'ESPN completed-game play-by-play · '+(earlyNote||'Recent games only')+' · First scorer = first points, including free throws.':'Comparison line: '+(validLine?researchLine:'Not available')+' · Historical median, not sportsbook odds.'}</p>
      <div className="player-summary-strip">
       <div><small>{side.toUpperCase()} HIT RATE</small><strong>{pct(summary?.rate??null)}</strong><span>{summary?summary.wins+'/'+(summary.n-summary.pushes)+' settled':'No qualifying sample'}</span></div>
       <div><small>AVERAGE</small><strong>{metric(summary?.mean??null)}</strong><span>{summary?.n??0} sampled games</span></div>
       <div><small>MEDIAN</small><strong>{metric(summary?.median??null)}</strong><span>Observed middle result</span></div>
       <div><small>STD DEV</small><strong>{metric(summary?.sd??null)}</strong><span>Historical variability</span></div>
      </div>
-     {loading?<div className="player-no-logs">Loading verified game logs…</div>:
+     {loading||earlyMode&&earlyLoading?<div className="player-no-logs">Loading verified game data…</div>:
       error?<div className="player-no-logs">Game history unavailable. Please try again later.</div>:
       !qualified.length||!validLine?<div className="player-no-logs"><Database size={23}/>No qualifying player game logs are available yet.</div>:
       <GameChart rows={qualified} market={market} line={researchLine!} side={side}/>}
