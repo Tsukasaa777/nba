@@ -10,7 +10,7 @@ type Stat='pts'|'reb'|'ast'|'fg3m';
 function resultValue(row:SimilarResult,market:Market):number|null{
  const map:Record<Market,Stat[]>={pts:['pts'],reb:['reb'],ast:['ast'],fg3m:['fg3m'],
  pr:['pts','reb'],pa:['pts','ast'],ra:['reb','ast'],pra:['pts','reb','ast'],
- stl:[],blk:[],turnover:[]};
+ stl:[],blk:[],turnover:[],fg3a:[],fga:[],fta:[],ftm:[],pf:[],q1_pts:[],q1_ast:[],q1_reb:[],first_score:[]};
  const keys=map[market];
  if(!keys.length)return null;
  const values=keys.map(k=>row[k]);

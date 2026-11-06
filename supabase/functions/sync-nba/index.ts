@@ -72,6 +72,45 @@ Deno.serve(async request => {
       counts.boxes += normalized.boxes.length;
     }
     statsOk = true;
+    // Backfill newly supported 3PA/FTM/PF without showing missing history as zeros.
+    // The standard schedule refresh only re-downloads recent final games; older
+    // imported box scores need a bounded, idempotent stat-field repair.
+    let forceRepair = false;
+    try {
+      const input = await request.clone().json();
+      forceRepair = input?.repair === true;
+    } catch { /* Existing empty cron requests remain valid. */ }
+    const repairWindow = forceRepair || (now.getUTCHours() % 2 === 1 && now.getUTCMinutes() < 15);
+    if(repairWindow && api.calls < 26 && api.mayBackfill(now)){
+      const since = new Date(now.getTime() - 24 * 86_400_000).toISOString();
+      const {data:older,error:olderError} = await db.from("box_scores")
+        .select("game_id,stats,played_at").gte("played_at",since)
+        .order("played_at",{ascending:false}).limit(1000);
+      if(!olderError){
+        const stale=new Set<string>();
+        for(const b of older ?? []){
+          const st=b.stats ?? {};
+          if(!/^sportapi:\d+$/.test(b.game_id))continue;
+          if(!Object.prototype.hasOwnProperty.call(st,"fg3a") ||
+            !Object.prototype.hasOwnProperty.call(st,"ftm") ||
+            !Object.prototype.hasOwnProperty.call(st,"pf"))stale.add(b.game_id.split(":")[1]);
+        }
+        for(const gameId of [...stale].slice(0,forceRepair?6:2)){
+          if(api.calls>37||!api.mayBackfill(now))break;
+          try{
+            const gameResponse=await api.get("games/"+gameId);
+            const raw=gameResponse.data;
+            if(!raw||raw.league?.slug!=="nba"||!["FT","AOT"].includes(String(raw.status).toUpperCase()))continue;
+            const scores=await api.get("games/"+gameId+"/players");
+            const normalized=normalizeSportBoxScore(raw,scores);
+            if(normalized.boxes.length){
+              await ingest({players:normalized.players,boxes:normalized.boxes});
+              counts.boxes+=normalized.boxes.length;
+            }
+          }catch{console.warn("NBA stat-field repair postponed",gameId);}
+        }
+      }
+    }
     // Refresh rosters only once per day; otherwise game-player lists have no active searchable players.
     if (!health.roster_success || Date.now() - Date.parse(health.roster_success) > 86_400_000) {
       // NBA league profile provides data.teams; roster updates are batched across
