@@ -334,3 +334,9 @@ main{background:#09090b}
 .player-upcoming-datetime b{font-size:10px;color:#d0badf;font-weight:650;white-space:nowrap}
 .player-schedule-empty{padding:20px 14px;background:#1b1a1e;border:1px dashed #444048;border-radius:9px;color:#aaa5ad;font-size:12px}
 @media(max-width:600px){.player-spotlight-avatar{width:82px;height:82px}.player-upcoming-list{grid-template-columns:1fr}.player-profile-source{display:none}}
+
+/* Compact all-market selector: full-game and verified first-quarter props */
+.player-market-tabs{align-items:center}
+.player-market-tabs .player-market-more{display:flex;flex-direction:column;flex:1 1 140px;gap:4px;min-width:140px;color:#aaa5b0;font-size:9px;padding-left:4px}
+.player-market-more select{border-radius:7px;border:1px solid #48424d;color:#eee8f5;background:#252129;padding:7px 9px;font-size:11px;max-width:100%;min-width:0}
+.player-market-more select:focus-visible{outline:2px solid #a78bfa}
