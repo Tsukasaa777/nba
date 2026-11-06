@@ -74,3 +74,16 @@ export function extractEarlyGame(summary:any,player:Player,row:BoxScore):EarlyGa
   first_score:participantId(first,0)===athleteId?1:0,
   first_scorer_name:String(first.text||'').split(/\s+makes?\b/i)[0]||null};
 }
+
+export const EARLY_MARKETS=['first_score','q1_pts','q1_ast','q1_reb'] as const;
+export function isEarlyMarket(market:string):boolean{
+ return (EARLY_MARKETS as readonly string[]).includes(market);
+}
+export function mergeEarlyStats(logs:BoxScore[],early:EarlyGameRow[]):BoxScore[]{
+ const lookup=new Map(early.map(r=>[r.game_id,r]));
+ return logs.map(r=>{
+  const e=lookup.get(r.game_id);
+  return e?{...r,stats:{...r.stats,
+    q1_pts:e.q1_pts,q1_ast:e.q1_ast,q1_reb:e.q1_reb,first_score:e.first_score}}:r;
+ });
+}
