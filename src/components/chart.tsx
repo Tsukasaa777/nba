@@ -1,13 +1,14 @@
 'use client';
 import {useState} from 'react';
 import {formatPHT,MARKETS,valueOf} from '@/lib/analytics';
-import type {BoxScore,Market} from '@/lib/types';
+import type {BoxScore,Market,StatKey} from '@/lib/types';
 
-const average=(rows:BoxScore[],key:'minutes'|'pts'|'reb'|'ast'|'fg3m')=>{
+const average=(rows:BoxScore[],key:'minutes'|StatKey)=>{
  const nums=rows.map(r=>key==='minutes'?r.minutes:r.stats?.[key]).filter((v):v is number=>typeof v==='number'&&Number.isFinite(v));
  return nums.length?nums.reduce((a,b)=>a+b,0)/nums.length:null;
 };
 const fmt=(v:number|null|undefined)=>typeof v==='number'&&Number.isFinite(v)?v.toFixed(1):'—';
+const shownValue=(v:number|null|undefined,market:Market)=>market==='first_score'?(v===1?'YES':v===0?'NO':'—'):(v??'—');
 
 export default function GameChart({rows,market,line,side}:{rows:BoxScore[];market:Market;line:number;side:'over'|'under'}){
  const [selected,setSelected]=useState<string|null>(null);
@@ -23,7 +24,7 @@ export default function GameChart({rows,market,line,side}:{rows:BoxScore[];marke
   <div className="chart-dashboard-head">
    <div><small>LAST {rows.length} VERIFIED GAMES</small><strong>{total?Math.round(wins/total*100)+'%':'—'}</strong><span>{wins} of {total} settled · {rows.length-total} pushes</span></div>
    <div><small>AVERAGE</small><strong>{fmt(observedAvg)}</strong><span>{MARKETS[market].short} · verified sample</span></div>
-   <div><small>SELECTED GAME</small><strong className="chart-selected-stat">{active?valueOf(active,market):'—'}</strong><span>{active?formatPHT(active.game.starts_at):'—'}</span></div>
+   <div><small>SELECTED GAME</small><strong className="chart-selected-stat">{active?shownValue(valueOf(active,market),market):'—'}</strong><span>{active?formatPHT(active.game.starts_at):'—'}</span></div>
   </div>
   <div className="chart-detail" aria-live="polite">{active&&<>
    <div><strong>{active.team_id===active.game.home_team_id?active.game.away_team?.abbreviation:active.game.home_team?.abbreviation}</strong>
@@ -46,11 +47,11 @@ export default function GameChart({rows,market,line,side}:{rows:BoxScore[];marke
      const isSelected=active?.game_id===r.game_id;
      return <div className="bar-column" key={r.game_id}>
       <button type="button" className={'bar '+(v===line?'push':win?'win':'loss')+(isSelected?' focused':'')}
-       style={{height:Math.max(1,v/max*100)+'%'}} onMouseEnter={()=>setSelected(r.game_id)}
+       style={{height:Math.max(market==='first_score'?8:1,v/max*100)+'%'}} onMouseEnter={()=>setSelected(r.game_id)}
        onFocus={()=>setSelected(r.game_id)} onClick={()=>setSelected(r.game_id)}
        aria-pressed={isSelected}
        aria-label={(r.game.provider_date||'Unknown date')+', vs '+opp?.name+', '+v+' '+MARKETS[market].label+', '+(v===line?'push':win?'hit':'miss')}>
-       <span className="bar-value">{v}</span>
+       <span className="bar-value">{shownValue(v,market)}</span>
       </button>
       <span className="bar-label">{opp?.abbreviation||'—'}<small>{r.team_id===r.game.home_team_id?'H':'A'}</small><small>{r.game.provider_date.slice(5)}</small></span>
      </div>;
@@ -59,7 +60,8 @@ export default function GameChart({rows,market,line,side}:{rows:BoxScore[];marke
   </div>
   <div className="legend"><span><i className="dot green"/>Hit</span><span><i className="dot red"/>Miss</span><span><i className="dot amber"/>Push</span><span>Click or hover to inspect · oldest to newest</span></div>
   <div className="supporting-grid">
-   {([{name:'Minutes',key:'minutes'},{name:'Points',key:'pts'},{name:'Rebounds',key:'reb'},{name:'Assists',key:'ast'},{name:'3PT made',key:'fg3m'}] as const).map(item=>
+   {([{name:'Minutes',key:'minutes'},{name:'Points',key:'pts'},{name:'Rebounds',key:'reb'},{name:'Assists',key:'ast'},{name:'3PT made',key:'fg3m'},
+    ...(['fg3a','fga','fta','ftm','stl','blk','pf'] as StatKey[]).filter(k=>MARKETS[market].keys.includes(k)).map(k=>({name:MARKETS[market].label,key:k}))] as {name:string;key:'minutes'|StatKey}[]).map(item=>
     <div key={item.key}><small>{item.name}</small><strong>{fmt(average(rows,item.key))}</strong><span>Observed avg · {rows.length} games max</span></div>
    )}
   </div>
