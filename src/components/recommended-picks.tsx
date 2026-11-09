@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
-import {ArrowRight,BarChart3,CalendarDays,Clock3,Filter,RefreshCw,ShieldAlert} from 'lucide-react';
+import {ArrowRight,BarChart3,CalendarDays,Clock3,ExternalLink,Filter,RefreshCw,ShieldAlert} from 'lucide-react';
 import {formatPHT} from '@/lib/analytics';
 import type {Candidate,RankedSlate} from '@/lib/recommendations';
 
@@ -75,7 +75,7 @@ export default function RecommendedPicks({date}:{date:string}){
    <div className="recommendations-header-count"><strong>{shown}</strong><small>Research candidates</small></div>
   </section>
   <div className="recommendation-toolbar">
-   <div className="recommendation-day"><CalendarDays size={16}/><span>{date} · PHT slate</span><small>Auto: 2 PM PHT reset</small></div>
+   <div className="recommendation-day"><CalendarDays size={16}/><span>{date} · PHT slate</span></div>
    <label><Filter size={15}/><select aria-label="Filter recommended picks by matchup" value={gameFilter} onChange={e=>setGameFilter(e.target.value)}>
     <option value="all">All games</option>
     {data?.matches.map(m=><option key={m.gameId} value={m.gameId}>{m.away} @ {m.home}</option>)}
@@ -83,6 +83,7 @@ export default function RecommendedPicks({date}:{date:string}){
    <label>Evidence <select aria-label="Filter by evidence score" value={minScore} onChange={e=>setMinScore(Number(e.target.value))}>
     <option value={55}>All candidates</option><option value={68}>68+ index</option><option value={78}>78+ index</option>
    </select></label>
+   <a className="secondary-button" href="https://stake.com/sports/basketball/usa/nba" target="_blank" rel="noopener noreferrer" aria-label="Compare NBA games and markets on Stake.com">Stake NBA <ExternalLink size={13}/></a>
    <button type="button" className="secondary-button" disabled={busy} onClick={()=>setRefresh(n=>n+1)}>
     <RefreshCw size={15} className={busy?'spin':''}/> Refresh
    </button>
