@@ -44,19 +44,12 @@ export function baseline(rows:BoxScore[],market:Market) {
 export function implied(odds:number|null){return odds!==null&&Number.isFinite(odds)&&odds>1?1/odds:null;}
 export function expectedValue(p:number,odds:number,push=0){if(p<0||push<0||p+push>1||odds<=1)return null;return p*(odds-1)-(1-p-push);}
 export function manilaDate(input:Date|string=new Date()){return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(input));}
-/** PHT slate rollover: 00:00–13:59 shows today's games; 14:00–23:59
- * shows tomorrow's games. A slate remains selected for 24 hours (2 PM–2 PM).
- * Never skip the immediately following Philippine calendar date.
+/** Default NBA research slate is always today's calendar date in Asia/Manila.
+ * Advance at midnight PHT, never at an arbitrary afternoon cutoff.
+ * The schedule and recommendations use verified game start times in PHT.
  */
 export function nextResearchSlateDate(input: Date | string = new Date()): string {
- const when = new Date(input);
- const pht = manilaDate(when);
- const hourParts = new Intl.DateTimeFormat('en-US',{
-  timeZone:'Asia/Manila',hour:'2-digit',hourCycle:'h23'
- }).formatToParts(when);
- const hour = Number(hourParts.find(p=>p.type==='hour')?.value);
- const offset = hour >= 14 ? 1 : 0;
- return new Date(Date.parse(pht+'T00:00:00Z')+offset*86_400_000).toISOString().slice(0,10);
+ return manilaDate(input);
 }
 export function dayBounds(day:string){const start=new Date(day+'T00:00:00+08:00');return {start:start.toISOString(),end:new Date(start.getTime()+86400000).toISOString()};}
 export function formatPHT(input:string|null,options:Intl.DateTimeFormatOptions={}) {if(!input)return 'Not yet verified';return new Intl.DateTimeFormat('en-PH',{timeZone:'Asia/Manila',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',...options}).format(new Date(input))+' PHT';}
