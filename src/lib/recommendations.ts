@@ -49,7 +49,7 @@ function evaluatePlayer(game:Game,player:Player,observations:HistoricalStat[],in
  const cutoff=Date.parse(game.starts_at);
  const rows=observations.filter(r=>r.player_id===player.id&&filterGames(r,player,game.starts_at!))
   .sort((a,b)=>Date.parse(b.played_at)-Date.parse(a.played_at));
- if(rows.length<6)return [];
+ if(rows.length<8)return [];
  const minutes=rows.slice(0,10).map(r=>r.minutes!).filter(finite);
  const averageMinutes=average(minutes);
  if(averageMinutes<17)return [];
@@ -64,18 +64,21 @@ function evaluatePlayer(game:Game,player:Player,observations:HistoricalStat[],in
  for(const market of RESEARCH_MARKETS){
   const valid=rows.map(r=>({row:r,value:pointValue(r,market)}))
    .filter((x):x is {row:HistoricalStat;value:number}=>x.value!==null);
-  if(valid.length<6)continue;
-  const values=valid.slice(0,10).map(x=>x.value);
-  const latest=values.slice(0,5),referenceLine=Math.floor(median(values))+.5;
-  // Reference threshold is NOT a bookmaker line and is never tuned to maximize hit rate.
-  const over10=values.filter(v=>v>referenceLine).length,under10=values.filter(v=>v<referenceLine).length;
-  const side:Candidate['side']=over10>=under10?'over':'under';
+  if(valid.length<8)continue;
+  const values=valid.slice(0,12).map(x=>x.value);
+  const latest=values.slice(0,5),prior=values.slice(5);
+  if(prior.length<3)continue;
+  // Choose a reference solely from older games, never from the latest five being screened.
+  // Not a real sportsbook prop line; past performance may not repeat.
+  const referenceLine=Math.floor(median(prior))+.5;
+  const over5=latest.filter(v=>v>referenceLine).length,under5=latest.filter(v=>v<referenceLine).length;
+  const side:Candidate['side']=over5>=under5?'over':'under';
   const wins=(vs:number[])=>vs.filter(v=>side==='over'?v>referenceLine:v<referenceLine).length;
   const hit5=wins(latest),hit10=wins(values);
   if(hit5<3||hit10<Math.ceil(values.length*.55))continue;
   const std=minutes.length>1?Math.sqrt(minutes.reduce((s,v)=>s+(v-averageMinutes)**2,0)/minutes.length):12;
   const minsStability=Math.max(.15,1-Math.min(std/averageMinutes,1));
-  const coverage=Math.min(1,valid.length/10);
+  const coverage=Math.min(1,valid.length/12);
   const score=Math.round(100*(.48*(hit5/latest.length)+.28*(hit10/values.length)+.13*minsStability+.11*coverage));
   if(score<61)continue;
   const avg=average(values),last5Avg=average(latest);
@@ -88,7 +91,7 @@ function evaluatePlayer(game:Game,player:Player,observations:HistoricalStat[],in
   ];
   if(minutes.length>=5)reasons.push('Minutes: '+p1(averageMinutes)+' average (last '+minutes.length+' games)');
   if(opponentSamples>=2)reasons.push(opponentSamples+' previous games vs '+opponent.abbreviation+' in imported history');
-  const caveats=['Reference line is historical, not a verified sportsbook offer'];
+  const caveats=['Reference line is based on '+prior.length+' earlier games, not a sportsbook offer'];
   if(!injuryFeedFresh)caveats.push('Injury availability not verified');
   if(recentDirection==='flat')caveats.push('No strong recent directional trend');
   results.push({
