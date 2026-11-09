@@ -82,8 +82,12 @@ function evaluatePlayer(game:Game,player:Player,observations:HistoricalStat[],in
   const std=minutes.length>1?Math.sqrt(minutes.reduce((s,v)=>s+(v-averageMinutes)**2,0)/minutes.length):12;
   const minsStability=Math.max(.15,1-Math.min(std/averageMinutes,1));
   const coverage=Math.min(1,valid.length/12);
-  const score=Math.round(100*(.48*(hit5/latest.length)+.28*(hit10/values.length)+.13*minsStability+.11*coverage));
-  if(score<61)continue;
+  const base=Math.round(100*(.48*(hit5/latest.length)+.28*(hit10/values.length)+.13*minsStability+.11*coverage));
+  // Ranking index, deliberately discounted for missing injury confirmation and
+  // short samples; does NOT represent a probability or estimated betting edge.
+  const lowVolume=(market==='blk'||market==='stl');
+  const score=Math.max(0,Math.min(82,base-(injuryFeedFresh?0:12)-(values.length<10?4:0)-(lowVolume?9:0)));
+  if(score<55)continue;
   const avg=average(values),last5Avg=average(latest);
   const direction=side==='over'?'above':'below';
   const recentDirection=side==='over'?(last5Avg>=avg?'up':'flat'):(last5Avg<=avg?'down':'flat');
