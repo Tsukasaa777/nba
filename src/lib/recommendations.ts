@@ -68,6 +68,9 @@ function evaluatePlayer(game:Game,player:Player,observations:HistoricalStat[],in
   const values=valid.slice(0,12).map(x=>x.value);
   const latest=values.slice(0,5),prior=values.slice(5);
   if(prior.length<3)continue;
+  // A flat stat series creates a tautological 100% rate at arbitrary half-point lines.
+  // Such records are not evidence of a useful forecasting signal.
+  if(new Set(values).size<3)continue;
   // Choose a reference solely from older games, never from the latest five being screened.
   // Not a real sportsbook prop line; past performance may not repeat.
   const referenceLine=Math.floor(median(prior))+.5;
